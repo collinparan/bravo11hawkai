@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>HawkAi 3.0</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            overscroll-behavior: none;
+        }
+
+        #renderContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #leftbuttonContainer, #rightbuttonContainer {
+            position: absolute;
+            z-index: 10;
+            top: 20%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            height: 60%;
+            padding: 10px; /* spacing inside the container */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3); /* subtle shadow for depth */
+        }
+
+        #leftbuttonContainer {
+            left: 10px;
+            padding-right: 100px;
+            border-top-left-radius: 50% 100%;
+            border-bottom-left-radius: 50% 100%;
+            background-color: rgba(255, 0, 0, 0.2); /* semi-transparent background */
+            clip-path: polygon(
+                100% 0, 0 0, 0 100%, 100% 100%, 
+                90% 90%, 85% 80%, 80% 70%, 78% 60%, 75% 50%, 78% 40%, 80% 30%, 85% 20%, 90% 10%
+            );
+        }
+
+        #rightbuttonContainer {
+            right: 10px;
+            padding-left: 100px;
+            border-top-right-radius: 50% 100%;
+            border-bottom-right-radius: 50% 100%;
+            background-color: rgba(0, 0, 255, 0.2); 
+            clip-path: polygon(
+                0 0, 100% 0, 100% 100%, 0 100%, 
+                10% 90%, 15% 80%, 20% 70%, 22% 60%, 25% 50%, 22% 40%, 20% 30%, 15% 20%, 10% 10%
+            );
+        }
+
+        .buttonWrapper {
+            display: flex;
+            justify-content: center; /* Center button horizontally */
+            align-items: center; /* Center button vertically */
+            width: 100%; /* Full width of the container */
+            padding: 5px 0; /* Adjust spacing around each button */
+            position: relative; /* Relative positioning */
+        }
+
+        .button {
+            margin: 5px 0; /* spacing between buttons */
+            background-color: transparent; /* semi-transparent buttons */
+            border: none;
+            border-radius: 10px; /* rounded button corners */
+            padding: 10px 20px;
+            color: white; /* text color */
+            cursor: pointer; /* mouse cursor on hover */
+        }
+    </style>
+</head>
+<body>
+    <div id="leftbuttonContainer">
+        <button id="globe" class="buttonWrapper button" style="margin-left: 30%;">Globe View</button>
+        <button id="terrain" class="buttonWrapper button" style="margin-left: 10%;">Terrain View</button>
+        <button id="resetView" class="buttonWrapper button" style="margin-left: 30%;">Reset View</button>
+    </div>
+    <div id="rightbuttonContainer">
+        <button id="chat" class="buttonWrapper button" style="margin-left: -40%;">Chat</button>
+        <button id="alerts" class="buttonWrapper button" style="margin-left: -10%;">Alerts</button>
+        <button id="settings" class="buttonWrapper button" style="margin-left: -40%;">Settings</button>
+    </div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./three/three.module.js",
+                "three/addons/": "./three/addons/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let camera, scene, renderer, globe, controls;
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('renderContainer');
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 50);
+            camera.position.set(0, 0, 15);
+
+            scene = new THREE.Scene();
+
+            // Increase the intensity of the ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Intensity increased to 0.8
+            scene.add(ambientLight);
+
+            // Increase the intensity of the directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); // Intensity increased to 1.5
+            directionalLight.position.set(0, 1, 0);
+            scene.add(directionalLight);
+
+            // Add a point light for additional brightness
+            const pointLight = new THREE.PointLight(0xffffff, 1, 100); // Intensity: 1, Distance: 100
+            pointLight.position.set(10, 10, 10); // Position the light to where it best illuminates the terrain
+            scene.add(pointLight);
+
+            // Load the earth texture
+            const textureLoader = new THREE.TextureLoader();
+            const earthTexture = textureLoader.load('img/earth-blue-marble.jpg');
+
+            // Create SphereGeometry for the globe
+            const geometry = new THREE.SphereGeometry(5, 32, 32);
+            const material = new THREE.MeshBasicMaterial({ map: earthTexture, transparent: true });
+            globe = new THREE.Mesh(geometry, material);
+            scene.add(globe);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.minDistance = 5;
+            controls.maxDistance = 50;
+            controls.update();
+
+            window.addEventListener('resize', onWindowResize);
+
+            document.getElementById('globe').addEventListener('click', addGlobe);
+            document.getElementById('terrain').addEventListener('click', addTerrain);
+
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            render();
+        }
+
+        function render() {
+            renderer.render(scene, camera);
+        }
+
+        // Adjust the addTerrain function
+        function addTerrain() {
+            // URL of your heightmap image
+            const heightMapUrl = 'img/heightmap.jpg'; // Replace with your heightmap image path
+
+            // Loader for the heightmap
+            new THREE.TextureLoader().load(heightMapUrl, texture => {
+                // Use the image data from the texture
+                const img = texture.image;
+
+                // Create a canvas to extract height data
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                context.drawImage(img, 0, 0);
+                const imgData = context.getImageData(0, 0, img.width, img.height).data;
+
+                // Generate the terrain geometry
+                const terrainGeometry = new THREE.PlaneGeometry(10, 10, img.width - 1, img.height - 1);
+                const vertices = terrainGeometry.attributes.position.array;
+
+                for (let i = 0, j = 0; i < vertices.length; i += 3, j++) {
+                    // Assuming the image is grayscale, red channel is used for height
+                    const height = imgData[j * 4] / 255.0; // Scale the height
+                    vertices[i + 2] = height; // Set the height of the vertex
+                }
+
+                terrainGeometry.computeVertexNormals(); // Necessary for lighting
+
+                // Remove existing globe or terrain
+                if (globe) {
+                    scene.remove(globe);
+                    globe.geometry.dispose();
+                    globe.material.dispose();
+                    globe = null;
+                }
+
+                // Create the terrain mesh
+                const terrainMaterial = new THREE.MeshStandardMaterial({ 
+                    color: 0xffffff, 
+                    map: texture, // Optional: apply the heightmap as a texture
+                    wireframe: false 
+                });
+                const terrain = new THREE.Mesh(terrainGeometry, terrainMaterial);
+
+                /// Adjust terrain rotation
+                terrain.rotation.x = -Math.PI / 2 - THREE.MathUtils.degToRad(-20);
+
+
+                terrain.name = 'terrain';
+                scene.add(terrain);
+            });
+        }
+
+
+
+        function addGlobe() {
+            // Remove the terrain if it's in the scene
+            const terrain = scene.getObjectByName('terrain');
+            if (terrain) {
+                scene.remove(terrain);
+                terrain.geometry.dispose();
+                terrain.material.dispose();
+            }
+
+            // Check if the globe already exists before creating a new one
+            if (!globe) {
+                // Create SphereGeometry for the globe
+                const geometry = new THREE.SphereGeometry(5, 32, 32);
+                const textureLoader = new THREE.TextureLoader();
+                const earthTexture = textureLoader.load('img/earth-blue-marble.jpg');
+                const material = new THREE.MeshBasicMaterial({ map: earthTexture, transparent: true });
+                globe = new THREE.Mesh(geometry, material);
+            }
+
+            // Add the globe to the scene
+            scene.add(globe);
+        }
+
+    </script>
+
+    <div id="renderContainer"></div>
+</body>
+</html>
