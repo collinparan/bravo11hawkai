@@ -8,22 +8,84 @@
         body {
             margin: 0;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             background-color: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             overscroll-behavior: none;
         }
 
         #renderContainer {
-            position: absolute;
-            top: 0;
-            left: 0;
+            position: relative;
             width: 100%;
-            height: 100%;
+            flex-grow: 1; /* Allows container to fill available space, leaving room for chat */
             background: transparent;
             cursor: pointer;
+            z-index: 1;
         }
+
+        #chatContainer {
+            position: fixed; /* Keep it always at the bottom */
+            bottom: 0;
+            left: 50%; /* Position half way across the screen */
+            transform: translateX(-50%); /* Shift it back to the left by half its own width */
+            width: 50%; /* Adjust the width as needed */
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center align the items vertically within the container */
+            background-color: rgba(0, 0, 0, 0); /* Adjust transparency as needed */
+            z-index: 2;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+
+        #chatInput {
+            width: 100%; /* Adjust width as needed */
+            max-width: 100%; /* Optional: max-width to prevent it from becoming too wide on large screens */
+            border: 2px solid #ccc;
+            padding: 5px;
+            background-color: white;
+            color: black;
+        }
+
+        #chatHistory {
+            width: 100%; /* Make chat history take full width of its container */
+            max-height: 600px; /* Adjust based on your preference */
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background-color: rgba(0, 0, 0, 0.1); /* Semi-transparent background */
+            color: white;
+            text-shadow: 0 0 8px #000; /* Optional: Adds a shadow to make text more readable */
+        }
+
+        .message {
+            padding: 5px;
+            margin: 5px;
+            border-radius: 5px;
+        }
+
+        .user-message {
+            background-color: rgba(0, 0, 0, 0); /* Semi-transparent background */
+            align-self: flex-end; /* Right align the user message */
+            max-width: 80%;
+            margin-right: 10px;
+        }
+
+
+        .bot-message {
+            background-color: #82ccdd;
+            align-self: flex-end; /* Align the bot message bubble to the right */
+            max-width: 80%;
+            margin-left: 30%;
+            margin-right: 0%;
+            text-align: left; /* Text aligned normally within the bubble */
+            padding: 5px;
+            margin: 5px;
+            border-radius: 5px;
+            color: white; /* Adjust text color as needed */
+        }
+
 
         #leftbuttonContainer, #rightbuttonContainer {
             position: absolute;
@@ -254,8 +316,67 @@
             scene.add(globe);
         }
 
+
+        // Chat functionality
+        document.getElementById('chat').addEventListener('click', () => {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.style.display = chatContainer.style.display === 'none' ? 'block' : 'none';
+        });
+
+        
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && this.value.trim() !== '') {
+                const chatHistory = document.getElementById('chatHistory');
+                const userMessage = this.value.trim();
+                
+                // Create and append the user message
+                appendMessage(userMessage, 'user-message');
+
+                // Simulate generating a bot response
+                const botResponse = "This is a simulated streaming response from the bot, showing each word one by one.";
+                simulateStreamingBotResponse(botResponse, chatHistory);
+
+                // Clear input
+                this.value = '';
+            }
+        });
+
+        function appendMessage(text, className) {
+            const chatHistory = document.getElementById('chatHistory');
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', className);
+            messageDiv.textContent = text;
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight; // Scroll to the bottom
+        }
+
+        function simulateStreamingBotResponse(response, chatHistory) {
+            const words = response.split(' ');
+            let index = 0;
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.classList.add('message', 'bot-message');
+            chatHistory.appendChild(botMessageDiv);
+
+            const intervalId = setInterval(() => {
+                if (index < words.length) {
+                    botMessageDiv.textContent += (index > 0 ? " " : "") + words[index]; // Add space before words after the first
+                    index++;
+                    chatHistory.scrollTop = chatHistory.scrollHeight; // Keep scrolling to the bottom as words are added
+                } else {
+                    clearInterval(intervalId);
+                }
+            }, 500); // Adjust the delay as needed to simulate typing speed
+        }
+
+
+
     </script>
 
     <div id="renderContainer"></div>
+
+    <div id="chatContainer" style="display:none;">
+        <div id="chatHistory"></div>
+        <input type="text" id="chatInput" placeholder="Type a message...">
+    </div>
 </body>
 </html>
