@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Force Graph with Node Labels</title>
+    <style> body { margin: 0; } </style>
+    <script src="3d-force-graph.min.js"></script>
+    <script type="importmap">
+    {
+    "imports": {
+        "three": "./three/three.module.js",
+        "three/addons/": "./three/addons/",
+        "UnrealBloomPass": "./three/examples/jsm/postprocessing/UnrealBloomPass.js"
+    }
+    }
+    </script>
+</head>
+<body>
+<div id="3d-graph"></div>
+
+<script type="module">
+  import * as THREE from 'three';
+  import { UnrealBloomPass } from 'UnrealBloomPass';
+
+  // Explicitly define each node with its color
+  const nodes = [
+    { id: "Node 1", color: '#ff0000' },
+    { id: "Node 2", color: '#00ff00' },
+    { id: "Node 3", color: '#0000ff' },
+    { id: "Node 4", color: '#ffff00' },
+    { id: "Node 5", color: '#ff00ff' }
+  ];
+
+  const links = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      links.push(
+        { source: nodes[i].id, target: nodes[j].id, curvature: 0.2, rotation: 0, particles: 2, particleSpeed: 0.01 },
+        { source: nodes[j].id, target: nodes[i].id, curvature: 0.3, rotation: Math.PI, particles: 2, particleSpeed: 0.01 }
+      );
+    }
+  }
+
+  const gData = { nodes, links };
+
+  const Graph = ForceGraph3D()(document.getElementById('3d-graph'))
+    .graphData(gData)
+    .nodeAutoColorBy('color')
+    .nodeThreeObject(node => {
+      const material = new THREE.MeshLambertMaterial({ color: node.color, transparent: true, opacity: 0.75 });
+      const geometry = new THREE.SphereGeometry(5, 32, 32);
+      const mesh = new THREE.Mesh(geometry, material);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: createText(node.id, node.color), transparent: true }));
+      sprite.scale.set(8, 4, 1);
+      mesh.add(sprite); // Add sprite label to each node mesh
+      return mesh;
+    })
+    .nodeLabel(node => node.id) // Set node labels
+    .onNodeDragEnd(node => {
+          node.fx = node.x;
+          node.fy = node.y;
+          node.fz = node.z;
+    })
+    .linkCurvature('curvature')
+    .linkDirectionalParticles('particles')
+    .linkDirectionalParticleSpeed('particleSpeed')
+    .backgroundColor('#000')
+    .cameraPosition({ z: 100 });
+
+  const bloomPass = new UnrealBloomPass();
+  bloomPass.strength = 4;
+  bloomPass.radius = 1;
+  bloomPass.threshold = 0;
+  Graph.postProcessingComposer().addPass(bloomPass);
+
+  function createText(text, color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 32;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#FFF'; // White text
+    context.textAlign = 'center';
+    context.font = '16px Arial';
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    const texture = new THREE.Texture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }
+</script>
+</body>
+</html>
