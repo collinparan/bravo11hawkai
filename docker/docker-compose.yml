@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  middleware:
+    build: 
+      context: ./middleware
+      dockerfile: python.Dockerfile
+      shm_size: 12gb
+    shm_size: 12gb
+    restart: always
+    container_name:  middleware
+    privileged: true
+    env_file:
+      - local.env
+    user: root
+    volumes:
+      - ./middleware:/middleware
+      - ./../.cache/huggingface/hub:/root/.cache/huggingface/hub
+    entrypoint: 'watchmedo auto-restart --directory=/middleware --pattern=*.py --recursive python app.py'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    ports:
+      - '2222:2222'
+networks:
+  docker_network:
+    driver: bridge
