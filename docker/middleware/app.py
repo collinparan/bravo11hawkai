@@ -29,7 +29,7 @@ parent_dir_path = os.path.dirname(os.path.realpath(__file__))
 # Get the local machine's IPv4 address for AWS Snowball
 # ipv4_address = socket.gethostbyname(socket.gethostname())
 # elastic_ip_address = requests.get('http://169.254.169.254/latest/meta-data/public-ipv4').text
-PORT = 9876
+PORT = 2222
 
 model_id = "HuggingFaceH4/zephyr-7b-beta"
 torch_device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -77,7 +77,7 @@ async def llmresponse(user_request: RequestBody):
     messages = [
         {
             "role": "system",
-            "content": "You are a friendly and professional chatbot. Your expertise is in a software system called PGMM which stands for Persistent Geoint Mission Management.",
+            "content": "You are a friendly and professional chatbot.",
         },
         {
             "role": "user",
