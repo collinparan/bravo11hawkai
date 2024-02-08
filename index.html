@@ -141,9 +141,21 @@
             color: white; /* text color */
             cursor: pointer; /* mouse cursor on hover */
         }
+
+        #infoBox {
+            position: absolute;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 5px;
+            display: none; /* Initially hidden */
+            pointer-events: none; /* Allows clicks to pass through */
+            z-index: 5;
+        }
     </style>
+    <script type="text/javascript" src="./satellite.js"></script>
 </head>
 <body>
+    <div id="infoBox"></div> <!-- Add this line for the info box -->
     <div id="leftbuttonContainer">
         <button id="globe" class="buttonWrapper button" style="margin-left: 30%;">Globe View</button>
         <button id="terrain" class="buttonWrapper button" style="margin-left: 10%;">Terrain View</button>
@@ -165,8 +177,9 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { Raycaster, Vector2 } from 'three';
 
-        let camera, scene, renderer, globe, controls;
+        let camera, scene, renderer, globe, controls, raycaster, mouse;
 
         init();
         animate();
@@ -178,6 +191,11 @@
             camera.position.set(0, 0, 15);
 
             scene = new THREE.Scene();
+
+            raycaster = new Raycaster();
+            mouse = new Vector2();
+
+            window.addEventListener('click', onWindowClick);
 
             // Increase the intensity of the ambient light
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Intensity increased to 0.8
@@ -224,6 +242,102 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onWindowClick(event) {
+    event.preventDefault();
+
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(globe);
+
+    if (intersects.length > 0) {
+        const point = intersects[0].point;
+        const latLon = convertToLatLon(point);
+        showInfoBox(event.clientX, event.clientY, latLon);
+        addPin(point); // Add the pin at the clicked location on the globe
+    } else {
+        removePin(); // Call a new function to remove the pin if clicked away from the globe
+        hideInfoBox(); // Optionally, hide the info box if it's visible
+    }
+}
+
+function removePin() {
+    // Iterate over the scene's children to find and remove the pin
+    scene.children.forEach(child => {
+        if (child.userData && child.userData.type === 'pin') {
+            scene.remove(child);
+            child.geometry.dispose();
+            child.material.dispose();
+        }
+    });
+}
+
+function hideInfoBox() {
+    const infoBox = document.getElementById('infoBox');
+    if (infoBox) {
+        infoBox.style.display = 'none';
+    }
+}
+
+
+        function addPin(position) {
+            // Define a larger size for the pin for visibility
+            const pinHeight = 0.5; // Making the pin taller for visibility
+            const pinRadiusTop = 0.02; // Smaller radius for the top of the pin
+            const pinRadiusBottom = 0.05; // Larger radius for the bottom to resemble a pin shape
+
+            // Remove existing pin if any
+            scene.children.forEach(child => {
+                if (child.userData && child.userData.type === 'pin') {
+                    scene.remove(child);
+                    child.geometry.dispose();
+                    child.material.dispose();
+                }
+            });
+
+            // Pin geometry and material
+            const geometry = new THREE.CylinderGeometry(pinRadiusTop, pinRadiusBottom, pinHeight, 32);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const pin = new THREE.Mesh(geometry, material);
+            pin.userData = {type: 'pin'}; // Tagging the pin for identification
+
+            // Adjust pin's position to ensure it's visible on the globe's surface
+            const globeRadius = 5; // Assuming the globe has a radius of 5 units
+            position = position.clone().normalize().multiplyScalar(globeRadius); // Positioning the pin on the globe surface
+            pin.position.copy(position);
+
+            // Correctly orienting the pin towards the center of the globe
+            pin.lookAt(new THREE.Vector3(0, 0, 0)); // Assuming the globe's center is at the origin
+            pin.rotateX(Math.PI / 2); // This will orient the pin's narrow end pointing towards the Earth
+
+            // Correct the position so the base of the pin sits on the globe's surface
+            pin.position.set(position.x, position.y + pinHeight / 2, position.z);
+
+            scene.add(pin);
+        }
+
+
+
+
+        function convertToLatLon(position) {
+            const radius = globe.geometry.parameters.radius;
+            const phi = Math.acos(position.y / radius);
+            const theta = Math.atan2(position.z, position.x);
+            const lat = 90 - (phi * 180) / Math.PI;
+            const lon = (theta * 180) / Math.PI;
+            return { lat: lat.toFixed(2), lon: lon.toFixed(2) };
+        }
+
+        function showInfoBox(x, y, latLon) {
+            const infoBox = document.getElementById('infoBox');
+            infoBox.style.display = 'block';
+            infoBox.style.left = `${x}px`;
+            infoBox.style.top = `${y}px`;
+            infoBox.innerHTML = `Terrain: Earth<br>Latitude: ${latLon.lat}°<br>Longitude: ${latLon.lon}°`;
         }
 
         function animate() {
@@ -368,7 +482,28 @@
             }, 500); // Adjust the delay as needed to simulate typing speed
         }
 
+      // Assuming you have a function to fetch and parse the CSV
+  async function loadSatelliteData() {
+    const response = await fetch('satellites.csv');
+    const data = await response.text();
+    // Parse CSV data here and extract TLEs
+  }
 
+  function propagateSatellites() {
+    // For each satellite, use satellite.js to calculate position
+    const satrec = satellite.twoline2satrec(tleLine1, tleLine2); // TLE lines
+    const positionAndVelocity = satellite.propagate(satrec, new Date());
+    const positionEci = positionAndVelocity.position;
+    // Convert ECI to geographic coordinates (lat/long) and update the globe
+  }
+
+  // Call these functions as needed
+  loadSatelliteData().then(() => {
+    // Initialize satellite propagation and rendering
+    propagateSatellites();
+    // Set an interval to update positions regularly
+    setInterval(propagateSatellites, 1000); // Update every second
+  });
 
     </script>
 
