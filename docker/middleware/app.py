@@ -13,6 +13,7 @@ from threading import Thread
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextIteratorStreamer, GenerationConfig
 from pydantic import BaseModel, validator
@@ -23,33 +24,21 @@ import sqlalchemy
 from sqlalchemy import create_engine
 import pandas as pd
 import numpy as np
+from joblib import load, dump
 
 parent_dir_path = os.path.dirname(os.path.realpath(__file__))
 
-# Get the local machine's IPv4 address for AWS Snowball
-# ipv4_address = socket.gethostbyname(socket.gethostname())
-# elastic_ip_address = requests.get('http://169.254.169.254/latest/meta-data/public-ipv4').text
-PORT = 2222
-
-model_id = "HuggingFaceH4/zephyr-7b-beta"
 torch_device = "cuda" if torch.cuda.is_available() else "cpu"
 print("Running on device:", torch_device)
 print("Threads:", torch.get_num_threads())
 
-model = ''
-
-if not model:
-    if torch_device == "cuda":
-        model = AutoModelForCausalLM.from_pretrained(model_id, load_in_8bit=True, device_map="auto", token = os.environ['HUGGINGFACEHUB_API_TOKEN'])
-    else:
-        model = AutoModelForCausalLM.from_pretrained(model_id, token = os.environ['HUGGINGFACEHUB_API_TOKEN']) 
-
-    tokenizer = AutoTokenizer.from_pretrained(model_id, token = os.environ['HUGGINGFACEHUB_API_TOKEN'])
-
+# Load the model and tokenizer
+model = load('zephyr_model.sav')
+tokenizer = load('zephyr_tokenizer.sav')
 
 server = FastAPI(
-    title='PGMM LLM API',
-    description='The goal of this API is to serve the PGMM LLM middleware.')
+    title='LLM API',
+    description='The goal of this API is to serve the LLM middleware.')
 
 server.add_middleware(
     CORSMiddleware,
@@ -62,6 +51,12 @@ server.add_middleware(
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ssl_context.load_cert_chain('test-cert.pem', keyfile='test-key.pem')
 
+templates = Jinja2Templates(directory="templates")
+server.mount("/static", StaticFiles(directory="static"), name="static")
+
+@server.get("/", response_class=HTMLResponse)
+async def main_webpage(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 class RequestBody(BaseModel):
     question: str
@@ -192,4 +187,4 @@ async def simplellmresponse(user_request: RequestBody):
 
 
 if __name__ == "__main__":
-    uvicorn.run("app:server", host="0.0.0.0", port=PORT, ssl_keyfile='test-key.pem', ssl_certfile='test-cert.pem')
+    uvicorn.run("app:server", host="0.0.0.0", port=80, ssl_keyfile='test-key.pem', ssl_certfile='test-cert.pem')
